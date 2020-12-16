@@ -51,14 +51,27 @@ namespace demo
             for (int i = 0; i < N; i++)
             {
                 //普通的加法实现
-                var result = Sum(new ArraySegment<int>(array));
+                var result = SumFastest(array);
                 sum += result;
             }
             Console.WriteLine($"direct simd result is:{sum}");
         }
 
         [Benchmark]
-        public unsafe void SumUseSimd()
+        public unsafe void DirectSimdCommon()
+        {
+            var sum = 0L;
+            for (int i = 0; i < N; i++)
+            {
+                //普通的加法实现
+                var result = SumFaster(array);
+                sum += result;
+            }
+            Console.WriteLine($"direct simd result is:{sum}");
+        }
+
+        [Benchmark]
+        public unsafe void CompileSimd()
         {
             var sum = 0L;
             for (int i = 0; i < N; i++)
@@ -67,25 +80,26 @@ namespace demo
                 var instance = assembly.CreateInstance("RoslynCompile.Calculator");
                 var meth = type.GetMember("Calculate").First() as MethodInfo;
                 // 获取通过编译器生成的方法执行的结果
-                int result = (int)meth.Invoke(instance, new object[] { new ArraySegment<int>( array) });
+                int result = (int)meth.Invoke(instance, new object[] { new ArraySegment<int>(array) });
                 sum += result;
             }
             Console.WriteLine($"compile simd result is:{sum}");
         }
 
+        /// <summary>
+        /// 普通的加法实现
+        /// </summary>
         [Benchmark]
         public unsafe void SumCommon()
         {
             var sum = 0L;
             for (int i = 0; i < N; i++)
             {
-                //普通的加法实现
                 var result = 0;
                 for (int j = 0; j < array.Length; j++)
                     result += array[j];
                 sum += result;
             }
-            Console.WriteLine($"common result is:{sum}");
         }
 
         public static void Compile()
@@ -156,37 +170,51 @@ namespace RoslynCompile
                 {
                     w = Stopwatch.StartNew();
                     ms.Seek(0, SeekOrigin.Begin);
-                    assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
+                    Assembly assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
                     Console.WriteLine("compile succeed");
                 }
             }
         }
 
-        public unsafe static Int32 Sum(ArraySegment<Int32> array)
+        public unsafe static int SumFastest(int[] array)
         {
-            if (array.Count == 0)
-                return 0;
-            int result = 0;
-            int size = Vector<int>.Count;
-            int[] ar = array.Array;
-            Vector256<int> swap = Vector256<int>.Zero;
-            int blockCount = array.Count / size;
-            int i = array.Offset;
-            fixed (int* ptr_a = ar)
-            {
-                for (; i < array.Offset + blockCount * size; i += Vector256<int>.Count)
+            int size = Vector256<int>.Count;
+            var buf = Vector256<int>.Zero;
+            int blockCount = array.Length / size;
+            int i = 0, result = 0;
+            fixed (int* pd = array)
+                for (; i < blockCount * size; i += size)
                 {
-                    Vector256<int> v1 = Avx2.LoadVector256(ptr_a + i);
-                    swap = Avx2.Add(v1, swap);
+                    var v = Avx.LoadVector256(pd + i);
+                    buf = Avx2.Add(buf, v);
                 }
-            }
-
-            for (int n = 0; n < size; ++n)
-                result += swap.GetElement(n);
-            for (; i < array.Offset + array.Count; i++)
-                result += ar[i];
+            var temp = stackalloc int[size];
+            Avx.Store(temp, buf);
+            for (int j = 0; j < size; j++)
+                result += temp[j];
+            for (; i < array.Length; i++)
+                result += array[i];
             return result;
         }
+
+        public unsafe static int SumFaster(int[] array)
+        {
+            int size = Vector<int>.Count;
+            var buf = Vector<int>.Zero;
+            int blockCount = array.Length / size;
+            int i = 0, result = 0;
+            for (; i < blockCount * size; i += size)
+            {
+                var left = new Vector<int>(array, i);
+                buf = Vector.Add(left, buf);
+            }
+            for (int n = 0; n < size; ++n)
+                result += buf[n];
+            for (; i < array.Length; i++)
+                result += array[i];
+            return result;
+        }
+
 
     }
 

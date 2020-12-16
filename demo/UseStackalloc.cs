@@ -10,6 +10,8 @@ namespace demo
 {
     /// <summary>
     /// 类似groupby功能的实现，测试计算速度
+    /// values即一列数据，sql类似：select values,count(0) from table group by values
+    /// 原生group by转换成数组操作，最快可以实现单核每秒聚合20亿条记录
     /// |       Method |  N |     Mean | Error | Ratio | Rank |
     /// |------------- |--- |---------:|------:|------:|-----:|
     /// | CountFastest | 10 | 481.0 ms |    NA |  1.00 |    1 |
@@ -32,6 +34,10 @@ namespace demo
             rd.NextBytes(values);
         }
 
+        /// <summary>
+        /// 使用最原始的数组，性能会比使用栈内存性能差一些
+        /// </summary>
+        /// <param name="rs"></param>
         private unsafe static void CountFast(uint[] rs)
         {
             var rss = new uint[rs.Length];
@@ -56,6 +62,10 @@ namespace demo
                 rs[i] += rss[i];
         }
 
+        /// <summary>
+        /// 使用栈内存的情况下，使用span会导致性能有点降低
+        /// </summary>
+        /// <param name="rs"></param>
         private unsafe static void CountFaster(uint[] rs)
         {
             Span<uint> rss = stackalloc uint[rs.Length];
@@ -80,6 +90,11 @@ namespace demo
                 rs[i] += rss[i];
         }
 
+        /// <summary>
+        /// 使用原生栈内存，性能最好
+        /// 缺点：不能申请太大，一般是1MB以内，否则会报错
+        /// </summary>
+        /// <param name="rs"></param>
         private unsafe static void CountFastest(uint[] rs)
         {
             var rss = stackalloc uint[rs.Length];

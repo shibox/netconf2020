@@ -9,7 +9,8 @@ namespace demo
     /// <summary>
     /// simd在topn算法中的使用
     /// </summary>
-    class TopNSimd
+    public class TopNSimd
     {
+
     }
 }
