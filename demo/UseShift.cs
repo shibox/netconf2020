@@ -22,7 +22,7 @@ namespace demo
     /// |   ToStringFast |   123 | 100000000 | 329.0 ms |    NA | 69.60 ms |  0.68 |    0.03 |    1 |
     /// </summary>
     [SimpleJob(RunStrategy.ColdStart, launchCount: 1, warmupCount: 1, targetCount: 2)]
-    [RPlotExporter, RankColumn]
+    [RankColumn]
     public class UseShift
     {
         [Params(1,11,123)]

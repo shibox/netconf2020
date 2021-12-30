@@ -27,7 +27,7 @@ namespace demo
     /// |   SumCommon | 10 | 641.1 ms |    NA | 7.71 ms |  2.95 |    0.02 |    2 |
     /// </summary>
     [SimpleJob(RunStrategy.ColdStart, launchCount: 1, warmupCount: 1, targetCount: 2)]
-    [RPlotExporter, RankColumn]
+    [RankColumn]
     public class CompilerAsAService
     {
         static Assembly assembly;
@@ -102,6 +102,22 @@ namespace demo
             }
         }
 
+        public static unsafe void Run()
+        {
+            Compile();
+            var sum = 0L;
+            for (int i = 0; i < 10; i++)
+            {
+                var type = assembly.GetType("RoslynCompile.Calculator");
+                var instance = assembly.CreateInstance("RoslynCompile.Calculator");
+                var meth = type.GetMember("Calculate").First() as MethodInfo;
+                // 获取通过编译器生成的方法执行的结果
+                int result = (int)meth.Invoke(instance, new object[] { new ArraySegment<int>(array) });
+                sum += result;
+            }
+            Console.WriteLine($"compile simd result is:{sum}");
+        }
+
         public static void Compile()
         {
             var code = @"               
@@ -170,7 +186,7 @@ namespace RoslynCompile
                 {
                     w = Stopwatch.StartNew();
                     ms.Seek(0, SeekOrigin.Begin);
-                    Assembly assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
+                    assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
                     Console.WriteLine("compile succeed");
                 }
             }

@@ -45,13 +45,75 @@ namespace demo
                 options: options);
             using var ms = new MemoryStream();
             var emitResult = compilation.Emit(ms);
+            ms.Seek(0, SeekOrigin.Begin);
             Assembly assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
             var type = assembly.GetType("RoslynCompile.Calculator");
             var instance = assembly.CreateInstance("RoslynCompile.Calculator");
-            var method = type.GetMember("Calculate").First() as MethodInfo;
-            int result = (int)method.Invoke(instance, new object[] { });
-            //result is:123
+            var method = type.GetMember("exec").First() as MethodInfo;
+            var input = 123;
+            int result = (int)method.Invoke(instance, new object[] { input });
+            Console.WriteLine(result);
+            //result is:124
+        }
+        
+        public static void RunNet6()
+        {
+            //动态编译暂时不支持最新的C#10语法
+            //var source = @"   
+            //using System;
+            //namespace RoslynCompile;
+            
+            //public class Calculator
+            //{
+            //    public int exec(int input)
+            //    {
+            //        return input + 1;
+            //    }
+            //}";
+
+            var source = @"   
+            using System;
+            namespace RoslynCompile
+            {
+                public class Calculator
+                {
+                    public int exec(int input)
+                    {
+                        return input + 1;
+                    }
+                }
+            }";
+
+            var assemblyName = Path.GetRandomFileName();
+            var references = new MetadataReference[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).GetTypeInfo().Assembly.Location)
+            };
+            var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary);
+            //支持语言版本
+            var pop = new CSharpParseOptions(LanguageVersion.Latest);
+            var syntaxTree = CSharpSyntaxTree.ParseText(source,pop);
+            var compilation = CSharpCompilation.Create(
+                assemblyName,
+                syntaxTrees: new[] { syntaxTree },
+                references: references,
+                options: options);
+            using var ms = new MemoryStream();
+            var emitResult = compilation.Emit(ms);
+            ms.Seek(0, SeekOrigin.Begin);
+            Assembly assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
+            var type = assembly.GetType("RoslynCompile.Calculator");
+            var instance = assembly.CreateInstance("RoslynCompile.Calculator");
+            var method = type.GetMember("exec").First() as MethodInfo;
+            var input = 123;
+            int result = (int)method.Invoke(instance, new object[] { input });
+            Console.WriteLine(result);
+            //result is:124
         }
 
     }
 }
+
+
+
+
